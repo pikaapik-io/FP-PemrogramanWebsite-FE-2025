@@ -32,7 +32,8 @@ type Project = {
   description: string;
   thumbnail_image: string | null;
   is_published: boolean;
-  game_template: number;
+  game_template_name: string;
+  game_template_slug: string;
 };
 
 export default function MyProjectsPage() {
@@ -57,9 +58,12 @@ export default function MyProjectsPage() {
     fetchProjects();
   }, []);
 
-  const handleDeleteProject = async (projectId: string) => {
+  const handleDeleteProject = async (
+    projectTemplate: string,
+    projectId: string,
+  ) => {
     try {
-      await api.delete(`/api/game/anagram/${projectId}`);
+      await api.delete(`/api/game/game-type/${projectTemplate}/${projectId}`);
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
       toast.success("Project deleted successfully!");
     } catch (err) {
@@ -68,28 +72,23 @@ export default function MyProjectsPage() {
     }
   };
 
-  const handleUpdateStatus = async (gameId: string, isPublish: boolean) => {
+  const handleUpdateStatus = async (
+    projectTemplate: string,
+    gameId: string,
+    isPublish: boolean,
+  ) => {
     try {
       const form = new FormData();
       form.append("is_publish", String(isPublish));
 
-      // Kirim permintaan PATCH ke server menggunakan Axios
-      const response = await api.patch(`/api/game/anagram/${gameId}`, form);
+      await api.patch(`/api/game/game-type/${projectTemplate}/${gameId}`, form);
 
-      // Cek status HTTP response untuk memastikan bahwa request berhasil
-      if (response.status !== 200) {
-        console.log("Error response:", response.data); // Cek detail error
-        throw new Error("Failed to update status.");
-      }
-
-      // Update status game di UI setelah berhasil
       setProjects((prev) =>
         prev.map((p) =>
           p.id === gameId ? { ...p, is_published: isPublish } : p,
         ),
       );
 
-      // Tampilkan notifikasi sukses
       toast.success(
         isPublish ? "Published successfully" : "Unpublished successfully",
       );
@@ -194,7 +193,9 @@ export default function MyProjectsPage() {
                       size="sm"
                       className="h-7"
                       onClick={() => {
-                        navigate(`/anagram/play/${project.id}`);
+                        navigate(
+                          `/${project.game_template_slug}/play/${project.id}`,
+                        );
                       }}
                     >
                       <Play />
@@ -206,7 +207,9 @@ export default function MyProjectsPage() {
                     size="sm"
                     className="h-7"
                     onClick={() => {
-                      navigate(`/anagram/edit/${project.id}`);
+                      navigate(
+                        `/${project.game_template_slug}/edit/${project.id}`,
+                      );
                     }}
                   >
                     <Edit />
@@ -218,7 +221,11 @@ export default function MyProjectsPage() {
                       size="sm"
                       className="h-7"
                       onClick={() => {
-                        handleUpdateStatus(project.id, false);
+                        handleUpdateStatus(
+                          project.game_template_slug,
+                          project.id,
+                          false,
+                        );
                       }}
                     >
                       <EyeOff />
@@ -230,7 +237,11 @@ export default function MyProjectsPage() {
                       size="sm"
                       className="h-7"
                       onClick={() => {
-                        handleUpdateStatus(project.id, true);
+                        handleUpdateStatus(
+                          project.game_template_slug,
+                          project.id,
+                          true,
+                        );
                       }}
                     >
                       <Eye />
@@ -264,7 +275,10 @@ export default function MyProjectsPage() {
                         <AlertDialogAction
                           className="bg-red-600 hover:bg-red-700"
                           onClick={() => {
-                            handleDeleteProject(project.id);
+                            handleDeleteProject(
+                              project.game_template_slug,
+                              project.id,
+                            );
                           }}
                         >
                           Yes, Delete
