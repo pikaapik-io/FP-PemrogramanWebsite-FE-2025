@@ -118,10 +118,10 @@ function EditSlidingPuzzle() {
 
             toast.success("Sliding Puzzle updated successfully!");
             navigate("/create-projects");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to update sliding puzzle:", err);
             const errorMessage =
-                err.response?.data?.message || "Failed to update sliding puzzle";
+                (err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to update sliding puzzle";
             toast.error(errorMessage);
         } finally {
             setLoading(false);
@@ -196,8 +196,7 @@ function EditSlidingPuzzle() {
 
                         <div>
                             <Dropzone
-                                label="Thumbnail Image"
-                                description="Leave empty to keep current thumbnail"
+                                label="Thumbnail Image (Leave empty to keep current)"
                                 allowedTypes={["image/png", "image/jpeg"]}
                                 maxSize={2 * 1024 * 1024}
                                 onChange={(file) => setThumbnail(file)}
@@ -218,8 +217,7 @@ function EditSlidingPuzzle() {
 
                         <div>
                             <Dropzone
-                                label="Puzzle Image"
-                                description="Leave empty to keep current puzzle image"
+                                label="Puzzle Image (Leave empty to keep current)"
                                 allowedTypes={["image/png", "image/jpeg"]}
                                 maxSize={5 * 1024 * 1024}
                                 onChange={(file) => setPuzzleImage(file)}

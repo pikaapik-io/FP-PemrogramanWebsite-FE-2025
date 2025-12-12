@@ -308,7 +308,7 @@ function PlaySlidingPuzzle() {
         setTimeout(() => {
             const gridSize = puzzle.grid_size;
             const totalTiles = gridSize * gridSize;
-            let shuffled = Array.from({ length: totalTiles }, (_, i) => i);
+            const shuffled = Array.from({ length: totalTiles }, (_, i) => i);
 
             // Fisher-Yates shuffle
             for (let i = shuffled.length - 1; i > 0; i--) {

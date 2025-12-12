@@ -81,10 +81,10 @@ function CreateSlidingPuzzle() {
 
             toast.success("Sliding Puzzle created successfully!");
             navigate("/create-projects");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to create sliding puzzle:", err);
             const errorMessage =
-                err.response?.data?.message || "Failed to create sliding puzzle";
+                (err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to create sliding puzzle";
             toast.error(errorMessage);
         } finally {
             setLoading(false);
