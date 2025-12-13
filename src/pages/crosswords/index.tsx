@@ -11,11 +11,16 @@ import {
   Trophy,
   RotateCcw,
   Home,
+  Volume2, // Icon Speaker Nyala
+  VolumeX, // Icon Speaker Mute
 } from "lucide-react";
 import { Typography } from "@/components/ui/typography";
 import api from "@/api/axios";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+
+// --- IMPORT AUDIO ---
+import bgmSound from "@/assets/bgm.mp3";
 
 // --- HELPER FORMAT WAKTU (MM:SS) ---
 const formatTime = (seconds: number) => {
@@ -52,7 +57,6 @@ interface CellData {
   isCorrect?: boolean;
 }
 
-// Interface baru untuk hasil pengecekan jawaban (menghindari any)
 interface CheckResult {
   word_id: string;
   is_correct: boolean;
@@ -72,6 +76,9 @@ export default function PlayCrossword() {
   const [isPaused, setIsPaused] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
+  // --- [BARU] STATE VOLUME (0.0 - 1.0) ---
+  const [volume, setVolume] = useState(0.4); // Default 40%
+
   // Focus Management
   const [selectedCell, setSelectedCell] = useState<{
     r: number;
@@ -82,7 +89,47 @@ export default function PlayCrossword() {
   );
   const inputRefs = useRef<(HTMLInputElement | null)[][]>([]);
 
-  // 1. FETCH DATA GAME
+  // --- LOGIKA AUDIO ---
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // 1. Inisialisasi Audio
+  useEffect(() => {
+    const audio = new Audio(bgmSound);
+    audio.loop = true;
+    audio.volume = volume; // Set volume awal sesuai state
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, []);
+
+  // 2. Update Volume Real-time saat slider digeser
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  // 3. Kontrol Play/Pause Audio
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (loading || isPaused || isFinished) {
+      audio.pause();
+    } else {
+      audio.play().catch((err) => {
+        console.log("Autoplay dicegah browser:", err);
+      });
+    }
+  }, [loading, isPaused, isFinished]);
+
+  // ---------------------------------------------------------
+  // --- FETCHING & GAME LOGIC (Tidak Berubah) ---
+  // ---------------------------------------------------------
+
   useEffect(() => {
     const fetchGame = async () => {
       try {
@@ -92,12 +139,10 @@ export default function PlayCrossword() {
             `/api/game/game-type/crossword/${id}/play/public`,
           );
         } catch {
-          // FIX: Hapus parameter error 'e' yang tidak terpakai
           res = await api.get(
             `/api/game/game-type/crossword/${id}/play/private`,
           );
         }
-
         const data: GameData = res.data.data;
         setGame(data);
         initializeGrid(data);
@@ -109,11 +154,9 @@ export default function PlayCrossword() {
         setLoading(false);
       }
     };
-
     if (id) fetchGame();
   }, [id, navigate]);
 
-  // --- LOGIKA STOPWATCH ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (game && !isPaused && !isFinished) {
@@ -124,7 +167,6 @@ export default function PlayCrossword() {
     return () => clearInterval(interval);
   }, [game, isPaused, isFinished]);
 
-  // 2. RENDER GRID
   const initializeGrid = (data: GameData) => {
     const newGrid: CellData[][] = Array(data.rows)
       .fill(null)
@@ -152,7 +194,6 @@ export default function PlayCrossword() {
         }
       }
     });
-
     setGrid(newGrid);
     inputRefs.current = Array(data.rows)
       .fill(null)
@@ -161,13 +202,11 @@ export default function PlayCrossword() {
 
   const handleInputChange = (r: number, c: number, val: string) => {
     if (!grid[r][c].isActive || isPaused || isFinished) return;
-
     const char = val.slice(-1).toUpperCase();
     const newGrid = [...grid];
     newGrid[r] = [...newGrid[r]];
     newGrid[r][c] = { ...newGrid[r][c], char };
     setGrid(newGrid);
-
     if (char) moveFocus(r, c, 1);
   };
 
@@ -193,13 +232,11 @@ export default function PlayCrossword() {
     const dir = overrideDir || direction;
     let currR = r;
     let currC = c;
-
     let found = false;
     let attempts = 0;
     while (!found && attempts < 50) {
       if (dir === "horizontal") currC += step;
       else currR += step;
-
       if (
         currR < 0 ||
         currR >= (game?.rows || 0) ||
@@ -207,7 +244,6 @@ export default function PlayCrossword() {
         currC >= (game?.cols || 0)
       )
         break;
-
       if (grid[currR][currC]?.isActive) {
         inputRefs.current[currR][currC]?.focus();
         setSelectedCell({ r: currR, c: currC });
@@ -228,7 +264,6 @@ export default function PlayCrossword() {
   const handleSubmit = async () => {
     if (!game) return;
     setSubmitting(true);
-
     try {
       const answersPayload = game.words.map((w) => {
         let userAnswer = "";
@@ -240,35 +275,25 @@ export default function PlayCrossword() {
         }
         return { word_id: w.id, user_answer: userAnswer };
       });
-
       const res = await api.post(`/api/game/game-type/crossword/${id}/check`, {
         answers: answersPayload,
       });
-
-      // FIX: Menggunakan casting tipe explicit daripada any
       const results = res.data.data.results as CheckResult[];
       const newGrid = [...grid];
-
       game.words.forEach((w) => {
-        // FIX: Tidak perlu (r: any) lagi
         const result = results.find((r) => r.word_id === w.id);
         const isCorrect = result?.is_correct || false;
-
         for (let i = 0; i < w.length; i++) {
           const r = w.direction === "vertical" ? w.row_index + i : w.row_index;
           const c =
             w.direction === "horizontal" ? w.col_index + i : w.col_index;
-
           const cell = { ...newGrid[r][c] };
           if (!isCorrect) cell.isCorrect = false;
           else if (cell.isCorrect !== false) cell.isCorrect = true;
           newGrid[r][c] = cell;
         }
       });
-
       setGrid(newGrid);
-
-      // FIX: Tidak perlu (r: any) lagi
       const allCorrect = results.every((r) => r.is_correct);
       if (allCorrect) {
         setIsPaused(true);
@@ -288,13 +313,8 @@ export default function PlayCrossword() {
     setTimer(0);
     setIsPaused(false);
     setIsFinished(false);
-
     const resetGrid = grid.map((row) =>
-      row.map((cell) => ({
-        ...cell,
-        char: "",
-        isCorrect: undefined,
-      })),
+      row.map((cell) => ({ ...cell, char: "", isCorrect: undefined })),
     );
     setGrid(resetGrid);
   };
@@ -310,12 +330,13 @@ export default function PlayCrossword() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-8 px-4 relative">
       {/* --- HEADER --- */}
-      <div className="w-full max-w-4xl flex items-center justify-between mb-6 sticky top-0 z-10 bg-slate-50 py-2">
+      <div className="w-full max-w-4xl flex items-center justify-between mb-6 sticky top-0 z-10 bg-slate-50 py-2 shadow-sm rounded-xl px-4 border border-slate-100">
         <Button variant="ghost" onClick={() => navigate("/")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Exit
         </Button>
 
         <div className="flex items-center gap-4">
+          {/* TIMER */}
           <div
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm font-mono font-bold text-lg transition-all",
@@ -327,6 +348,27 @@ export default function PlayCrossword() {
           >
             <Clock className="w-4 h-4" />
             {formatTime(timer)}
+          </div>
+
+          {/* --- [BARU] VOLUME CONTROL --- */}
+          <div className="hidden sm:flex items-center gap-2 bg-white px-3 py-2 rounded-full border shadow-sm">
+            <button onClick={() => setVolume(volume === 0 ? 0.4 : 0)}>
+              {volume === 0 ? (
+                <VolumeX className="w-4 h-4 text-slate-400" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-slate-700" />
+              )}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              className="w-20 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-800"
+              title={`Volume: ${Math.round(volume * 100)}%`}
+            />
           </div>
 
           <Button
@@ -352,11 +394,11 @@ export default function PlayCrossword() {
           ) : (
             <CheckCircle className="mr-2 h-4 w-4" />
           )}
-          Check Answer
+          <span className="hidden sm:inline">Check Answer</span>
         </Button>
       </div>
 
-      {/* --- OVERLAY PAUSE --- */}
+      {/* --- OVERLAYS --- */}
       {isPaused && !isFinished && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-50 flex items-center justify-center">
           <div className="bg-white p-8 rounded-2xl shadow-lg text-center space-y-4 animate-in zoom-in-95 duration-200">
@@ -377,7 +419,6 @@ export default function PlayCrossword() {
         </div>
       )}
 
-      {/* --- OVERLAY SUCCESS / FINISH --- */}
       {isFinished && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300 max-w-sm w-full border-4 border-green-100">
@@ -386,7 +427,6 @@ export default function PlayCrossword() {
                 <Trophy className="w-12 h-12 text-green-600" />
               </div>
             </div>
-
             <div className="space-y-2">
               <Typography variant="h2" className="text-slate-800 font-bold">
                 Puzzle Solved!
@@ -398,7 +438,6 @@ export default function PlayCrossword() {
                 {formatTime(timer)}
               </div>
             </div>
-
             <div className="flex flex-col gap-3 pt-4">
               <Button
                 size="lg"
@@ -420,9 +459,8 @@ export default function PlayCrossword() {
         </div>
       )}
 
-      {/* MAIN GAME AREA */}
+      {/* --- GAME AREA --- */}
       <div className="flex flex-col lg:flex-row gap-8 w-full max-w-5xl justify-center items-start">
-        {/* GRID AREA */}
         <div
           className="bg-white p-4 rounded-xl shadow-sm border overflow-auto max-w-full"
           style={{
@@ -474,7 +512,6 @@ export default function PlayCrossword() {
           )}
         </div>
 
-        {/* CLUES SIDEBAR */}
         <div className="w-full lg:w-80 space-y-6">
           <div className="bg-white p-4 rounded-xl border shadow-sm">
             <Typography variant="h4" className="mb-3 border-b pb-2">
@@ -491,7 +528,6 @@ export default function PlayCrossword() {
                 ))}
             </ul>
           </div>
-
           <div className="bg-white p-4 rounded-xl border shadow-sm">
             <Typography variant="h4" className="mb-3 border-b pb-2">
               Vertical
