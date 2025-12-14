@@ -24,7 +24,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         logout();
       })
       .finally(() => setLoading(false));
-  }, []);
+
+    // FIX: Menambahkan dependencies yang hilang untuk memenuhi react-hooks/exhaustive-deps
+  }, [logout, setToken, setUser]); // <--- PERBAIKAN DI SINI
 
   if (loading) {
     return (

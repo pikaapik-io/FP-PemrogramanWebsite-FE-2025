@@ -56,6 +56,13 @@ import CreateWhackAMole from "./pages/whack-a-mole/create";
 import EditWhackAMole from "./pages/whack-a-mole/edit";
 import SpeedSorting from "./pages/speed-sorting/SpeedSorting";
 
+// ==========================================================
+// 🚨 TAMBAHAN KODE BARU UNTUK MATCH UP
+// ==========================================================
+import MatchUpPage from "./pages/MatchUp/MatchUpPage";
+import CreateMatchUp from "./pages/MatchUp/CreateMatchUp";
+import EditMatchUp from "./pages/MatchUp/EditMatchUp";
+
 function App() {
   return (
     <>
@@ -87,6 +94,9 @@ function App() {
           element={<PlaySlidingPuzzle />}
         />
 
+        {/* 📌 RUTE PLAY MATCH UP (PUBLIK) */}
+        <Route path="/match-up/play/:id" element={<MatchUpPage />} />
+
         <Route element={<ProtectedRoute />}>
           <Route
             path="/whack-a-mole/play/:gameId"
@@ -116,7 +126,6 @@ function App() {
           <Route path="/whack-a-mole/edit/:id" element={<EditWhackAMole />} />
           <Route path="/create-maze-chase" element={<CreateMazeChase />} />
           <Route path="/create-anagram" element={<CreateAnagram />} />
-          <Route path="/create-type-speed" element={<CreateTypeSpeed />} />
           <Route path="/quiz/edit/:id" element={<EditQuiz />} />
           <Route path="/flip-tiles/edit/:id" element={<EditFlipTiles />} />
           <Route
@@ -147,7 +156,6 @@ function App() {
             path="/sliding-puzzle/edit/:id"
             element={<EditSlidingPuzzle />}
           />
-          <Route path="/type-speed/edit/:id" element={<EditTypeSpeed />} />
           <Route element={<ProtectedRoute />}>
             {/* ...route lain... */}
             <Route path="/open-the-box/edit/:id" element={<EditOpenTheBox />} />

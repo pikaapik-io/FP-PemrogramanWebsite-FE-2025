@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "@/api/axios";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import { Typography } from "@/components/ui/typography";
 import {
@@ -84,6 +84,56 @@ function TypeTheAnswer() {
 
   const timerRef = useRef<number | null>(null);
 
+  // --- Functions (Memoized using useCallback) ---
+
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const response = await api.get(
+        `/api/game/game-type/type-the-answer/${id}/leaderboard`,
+      );
+      console.log("Leaderboard response:", response.data);
+      const leaderboardData = response.data.data || [];
+      console.log("Leaderboard data:", leaderboardData);
+      setLeaderboard(leaderboardData);
+    } catch (err) {
+      console.error("Failed to fetch leaderboard:", err);
+    }
+  }, [id]);
+
+  const submitGame = useCallback(
+    async (finalAnswers: typeof userAnswers) => {
+      try {
+        setLoading(true);
+
+        // Calculate completion time
+        const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+        setCompletionTime(timeSpent);
+
+        const response = await api.post(
+          `/api/game/game-type/type-the-answer/${id}/check`,
+          {
+            answers: finalAnswers,
+            completion_time: timeSpent,
+          },
+        );
+
+        setResult(response.data.data);
+
+        // Fetch leaderboard
+        await fetchLeaderboard();
+
+        setFinished(true);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to submit game.");
+        toast.error("Failed to submit game.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [id, startTime, fetchLeaderboard],
+  ); // FIX: userAnswers dihapus dari dependencies
+
   // Fetch game data
   useEffect(() => {
     const fetchGame = async () => {
@@ -151,7 +201,9 @@ function TypeTheAnswer() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [gameStarted, isPaused, finished, userAnswers]);
+    // FIX: submitGame ditambahkan karena digunakan di dalam,
+    // userAnswers tidak perlu karena nilainya digunakan di dalam submitGame yang sudah di-memoize
+  }, [gameStarted, isPaused, finished, submitGame, userAnswers]);
 
   const startGame = () => {
     setGameStarted(true);
@@ -212,52 +264,7 @@ function TypeTheAnswer() {
     navigate("/");
   };
 
-  const submitGame = async (finalAnswers: typeof userAnswers) => {
-    try {
-      setLoading(true);
-
-      // Calculate completion time
-      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
-      setCompletionTime(timeSpent);
-
-      const response = await api.post(
-        `/api/game/game-type/type-the-answer/${id}/check`,
-        {
-          answers: finalAnswers,
-          completion_time: timeSpent,
-        },
-      );
-
-      setResult(response.data.data);
-
-      // Fetch leaderboard
-      await fetchLeaderboard();
-
-      setFinished(true);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to submit game.");
-      toast.error("Failed to submit game.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchLeaderboard = async () => {
-    try {
-      // Fetch leaderboard from API
-      const response = await api.get(
-        `/api/game/game-type/type-the-answer/${id}/leaderboard`,
-      );
-      console.log("Leaderboard response:", response.data);
-      const leaderboardData = response.data.data || [];
-      console.log("Leaderboard data:", leaderboardData);
-      setLeaderboard(leaderboardData);
-    } catch (err) {
-      console.error("Failed to fetch leaderboard:", err);
-      // Don't show error toast, leaderboard is optional
-    }
-  };
+  // fetchLeaderboard dan submitGame dipindahkan ke atas dan di-memoize dengan useCallback
 
   if (loading && !game) {
     return (
